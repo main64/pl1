@@ -125,7 +125,7 @@ public class CPU {
 		if(depth == 0) {
 			return eval(sb);
 		}
-		
+	
 		int[][] fb = new int[8][8];	//探索の際に利用するコピー先盤面
 				
 		/*再帰アルゴリズムによるαβ探索*/
@@ -220,9 +220,9 @@ public class CPU {
 		
 		/*探索方法を場合分け*/
 		try{
-			if(difficulty == "易しい") {
+			if(difficulty == "やさしい") {
 				easy(board, c);
-			}else if(difficulty == "普通") {
+			}else if(difficulty == "ふつう") {
 				normal(board, c);
 			}else if(difficulty == "難しい") {
 				difficult(board, c);

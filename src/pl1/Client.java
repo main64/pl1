@@ -14,11 +14,14 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import javax.swing.UIManager;
+import javax.swing.border.Border;
 import javax.swing.border.LineBorder;
 
 /*クライアントプログラムのうち画面描画に関するものである
@@ -34,35 +37,26 @@ public class Client extends JFrame implements ActionListener {
 	private MoveReceiver move_receiver; //データ受信用オブジェクト
 	private static String enemyName;//相手の名前
 	private static int hand;//操作情報
-	private String mode; //以下の5つの文字列のいずれか 
+	private String mode; //対戦モードやコンピュータ難易度を示す
 	private static int x, y;//コマの座標
 
 	final String EASY = "やさしい"; //コンピュータレベルを指す 3つのいずれかならば同時にローカル対戦中である
 	final String NORMAL = "ふつう";
 	final String HARD = "難しい";
 
-	final String LOCAL = "ローカル";
+	final String LOCAL = "ローカル"; //対戦モードを示す
 	final String NETWORK = "ネットワーク";
 
-	final int BOARD_BORDER = 8;
+	final int BOARD_BORDER = 8; //オセロの行数・列数
 
 	Othello othello = new Othello();
 	CPU cpu;
-	int[] cpuPut = new int[2];
+	int[] cpuPut = new int[2];//操作情報
 
 	JButton[][] boardBottons = new JButton[BOARD_BORDER][BOARD_BORDER]; //ボタン配列 要素となるボタンはコンストラクタ内で宣言
-	/*int map[][] = { //環境テスト用
-			{ 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 0, 0, 1, 2, 3, 3, 0, 0 },
-			{ 0, 0, 2, 4, 5, 0, 0, 0 },
-			{ 0, 0, 3, 5, 4, 0, 0, 0 },
-			{ 0, 0, 2, 0, 0, 1, 0, 0 },
-			{ 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 0, 0, 0, 0, 0, 0, 0, 0 } };*/
-	boolean isBlack = false; //プレイヤが黒ならばtrue
+	boolean isBlack; //プレイヤが黒ならばtrue
 
-	public Client() {
+	public Client() {  //コンストラクタ 盤面のボタンについて定義している
 
 		super("Othello");
 		setResizable(true); //現時点ではフレームのサイズ変更はできない前提で書いている
@@ -70,39 +64,39 @@ public class Client extends JFrame implements ActionListener {
 
 		for (int i = 0; i < 64; i++) {
 			BoardButton button = new BoardButton(i); //新しく宣言したBoardButtonクラスのインスタンス
-			button.addActionListener(new ActionListener() {
+			button.addActionListener(new ActionListener() { //盤面のボタンが押されたときの動作を定義
 				public void actionPerformed(ActionEvent e) {
 					int i = button.getI();
-					int state = othello.getGridState(i / BOARD_BORDER, i % BOARD_BORDER); //Othelloクラスから呼び出しに書き換え
-
-					if (isBlack && (state == 1 || state == 3)) {
-						othello.mainboard = Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 1);
-						reflectMap();
-						if (mode == NETWORK) {
+					int state = othello.getGridState(i / BOARD_BORDER, i % BOARD_BORDER); //オセロクラスから盤面の状態を受け取る
+					
+					if (isBlack && (state == 1 || state == 3)) { //自身が黒かつ黒が置けるならば
+						othello.mainboard = Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 1); //盤面を更新
+						reflectMap();//盤面情報を盤面ボタンに反映
+						if (mode == NETWORK) { //ネットワーク対戦の場合
 							sendMessage(Integer.toString(i));//サーバーに送信
-						} else {
-							cpu.CPUMain(othello.getBoard());
-							cpuPut = cpu.getMove();
-							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 2);
-							reflectMap();
+						} else { //ローカル対戦の場合
+							cpu.CPUMain(othello.getBoard()); //CPUに盤面情報を引き渡す
+							cpuPut = cpu.getMove(); //CPUが探索した結果を受け取る
+							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 2); //盤面を更新
+							reflectMap();//盤面情報を盤面ボタンに反映
 						}
 
-					} else if (!isBlack && (state == 2 || state == 3)) {
+					} else if (!isBlack && (state == 2 || state == 3)) { //自身が白かつ白が置けるならば
 						Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 2);
-						reflectMap();
+						reflectMap();//盤面情報を盤面ボタンに反映
 						if (mode == NETWORK) {
 							sendMessage(Integer.toString(i));//サーバーに送信
-						} else {
-							cpu.CPUMain(othello.getBoard());
-							cpuPut = cpu.getMove();
-							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 1);
-							reflectMap();
+						} else {//ローカル対戦の場合
+							cpu.CPUMain(othello.getBoard());//CPUに盤面情報を引き渡す
+							cpuPut = cpu.getMove();//CPUが探索した結果を受け取る
+							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 1); //盤面を更新
+							reflectMap();//盤面情報を盤面ボタンに反映
 						}
 
 					}
 
-					if (othello.endCheck() == 1) {
-						paintResult();
+					if (othello.endCheck() == 1) { //ゲームが終了しているか確認
+						paintResult(); //結果を出力
 					}
 				}
 			});
@@ -195,21 +189,87 @@ public class Client extends JFrame implements ActionListener {
 
 		JButton easyButton = new JButton(EASY);
 		p.add(easyButton);
-		easyButton.addActionListener(this);
 
 		JButton normalButton = new JButton(NORMAL);
 		p.add(normalButton);
-		normalButton.addActionListener(this);
-
+		
 		JButton hardButton = new JButton(HARD);
 		p.add(hardButton);
-		hardButton.addActionListener(this);
+		
+		Color defaultColor = UIManager.getColor("Button.background");
+        Border defaultBorder = UIManager.getBorder("Button.border");
+        
+		ActionListener levelButtonListener = new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                JButton clickedButton = (JButton) e.getSource();
+                mode=e.getActionCommand();
+                // すべてのボタンの色と枠線をデフォルトに戻す
+                resetButtons(easyButton, defaultColor, defaultBorder);
+                resetButtons(normalButton, defaultColor, defaultBorder);
+                resetButtons(hardButton, defaultColor, defaultBorder);
 
+                // 押されたボタンの色と枠線を変更
+                clickedButton.setBackground(Color.YELLOW);
+                clickedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 3));
+            }
+        };
+
+        // ボタンにイベントリスナーを追加
+        easyButton.addActionListener(levelButtonListener);
+        normalButton.addActionListener(levelButtonListener);
+        hardButton.addActionListener(levelButtonListener);
+        
+		
+		if(mode==LOCAL) {
+			JPanel bwp=new JPanel();
+			JLabel bwtext=new JLabel("先手後手を選んでください");
+			bwp.add(bwtext);
+			JButton black=new JButton("先手:黒");
+			JButton white=new JButton("後手:白");
+			
+			
+			ActionListener bwButtonListener = new ActionListener() {
+	            public void actionPerformed(ActionEvent e) {
+	            	if(e.getActionCommand()=="先手:黒") {
+	            		isBlack=true;
+	 
+	            	}else {
+	            		isBlack=false;
+	            	}
+	            	
+	                JButton clickedButton = (JButton) e.getSource();
+
+	                // すべてのボタンの色と枠線をデフォルトに戻す
+	                resetButtons(black, defaultColor, defaultBorder);
+	                resetButtons(white, defaultColor, defaultBorder);
+
+	                // 押されたボタンの色と枠線を変更
+	                clickedButton.setBackground(Color.YELLOW);
+	                clickedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 3));
+	                
+	            }
+	        };
+	        black.addActionListener(bwButtonListener);
+	        white.addActionListener(bwButtonListener);
+	        
+			bwp.add(black);
+			bwp.add(white);
+			p.add(bwp);
+		}
+		
+
+		JButton ok=new JButton("対局開始");
+		ok.addActionListener(this);
+		p.add(ok);
 		add(p);
 
 		revalidate();
 		repaint();
 	}
+	 private static void resetButtons(JButton button, Color defaultColor, Border defaultBorder) {
+	        button.setBackground(defaultColor);
+	        button.setBorder(defaultBorder);
+	    }
 
 	public void paintGame() {
 
@@ -318,6 +378,7 @@ public class Client extends JFrame implements ActionListener {
 		case "draw":
 			winner = "引き分け";
 			break;
+		default: System.out.println("Error@paintResult");
 		}
 
 		setSize(400, 200);
@@ -346,15 +407,8 @@ public class Client extends JFrame implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
+		
 		switch (e.getActionCommand()) {
-		case EASY://コンピュータのレベル選び段階
-		case NORMAL:
-		case HARD:
-			mode = e.getActionCommand(); //それぞれのレベルに設定
-			cpu = new CPU(mode, "white"); //色については仮
-			enemyName = mode;
-			paintGame();
-			break;
 		case LOCAL: //モード設定段階
 			mode = LOCAL;
 			chooseLevel(); //コンピュータのレベル選びに移行
@@ -368,6 +422,18 @@ public class Client extends JFrame implements ActionListener {
 			paintResult();
 			break;
 		case "パス": //パスの処理
+			break;
+		case "対局開始":
+			if(isBlack) {
+				cpu = new CPU(mode,"black");
+				Player.setBlackwhite("black");
+			}else {
+				cpu=new CPU(mode,"white");
+				Player.setBlackwhite("white");
+			}
+		
+			enemyName = mode;
+			paintGame();
 			break;
 		}
 
