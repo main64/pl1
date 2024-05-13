@@ -237,10 +237,10 @@ public class CPU {
 	/*難易度易*/
 	private void easy(int[][] board, int c) {
 		int depth = 1;	//何手先まで読むか
-		if(CPUTest.getTurn() < ENDSTART - depth + 1) {
+		if(Client.getTurn() < ENDSTART - depth + 1) {
 			search(depth, depth, board, c, false, Integer.MAX_VALUE, Integer.MAX_VALUE);
 		}else {	//完全探索
-			int enddepth = 60 - CPUTest.getTurn() + 1;
+			int enddepth = 60 - Client.getTurn() + 1;
 			search(enddepth, enddepth, board, c, true, Integer.MAX_VALUE, Integer.MAX_VALUE);
 		}
 	}
@@ -248,13 +248,13 @@ public class CPU {
 	/*難易度中*/
 	private void normal(int[][] board, int c) {
 		int depth = 2;
-		if(CPUTest.getTurn() < ENDSTART_N - depth + 1) {
+		if(Client.getTurn() < ENDSTART_N - depth + 1) {
 			search(depth, depth, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
-		}else if(CPUTest.getTurn() < ENDSTART_N) {	//完全探索が始まる前の手番までの先読みをする
-			int toend = ENDSTART_N - CPUTest.getTurn();
+		}else if(Client.getTurn() < ENDSTART_N) {	//完全探索が始まる前の手番までの先読みをする
+			int toend = ENDSTART_N - Client.getTurn();
 			search(toend, toend, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}else {
-			int enddepth = 60 - CPUTest.getTurn() + 1;
+			int enddepth = 60 - Client.getTurn() + 1;
 			search(enddepth, enddepth, board, c, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}
 	}
@@ -262,13 +262,13 @@ public class CPU {
 	/*難易度高*/
 	private void difficult(int[][] board, int c) {
 		int depth = 8;
-		if(CPUTest.getTurn() < ENDSTART - depth + 1) {
+		if(Client.getTurn() < ENDSTART - depth + 1) {
 			search(depth, depth, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
-		}else if(CPUTest.getTurn() < ENDSTART) {	//完全探索が始まる前の手番までの先読みをする
-			int toend = ENDSTART - CPUTest.getTurn();
+		}else if(Client.getTurn() < ENDSTART) {	//完全探索が始まる前の手番までの先読みをする
+			int toend = ENDSTART - Client.getTurn();
 			search(toend, toend, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}else {
-			int enddepth = 60 - CPUTest.getTurn() + 1;
+			int enddepth = 60 - Client.getTurn() + 1;
 			search(enddepth, enddepth, board, c, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}
 	}

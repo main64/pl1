@@ -76,7 +76,7 @@ public class Client extends JFrame implements ActionListener {
 			{ 0, 0, 0, 0, 0, 0, 0, 0 },
 			{ 0, 0, 0, 0, 0, 0, 0, 0 } };
 	boolean isBlack; //プレイヤが黒ならばtrue
-	boolean myTurn; //自分のターンを管理
+	static boolean myTurn; //自分のターンを管理
 	
 	int giveUp=0;//0:投了が押されていない、1:自分が押した、2:相手が押した
 
@@ -245,13 +245,17 @@ public class Client extends JFrame implements ActionListener {
 		repaint();
 	}
 	
-	public String getTurnLabel() {//画面に手番の表示をするためのメソッド
+	public String getTurnText() {//画面に手番の表示をするためのメソッド
 		if(myTurn) {
 			return "あなたの番です";
 		}
 		else {
 			return "相手の番です";
 		}
+	}
+	
+	public static int getTurn() {
+		return turn;
 	}
 
 	public void paintGame() {
@@ -282,7 +286,7 @@ public class Client extends JFrame implements ActionListener {
 		
 		JLabel turnLabel=new JLabel("あなたの番です");
 		
-		turnLabel.setText(getTurnLabel());//どちらの手番かを表示
+		turnLabel.setText(getTurnText());//どちらの手番かを表示
 		JPanel lowerP = new JPanel();
 		pass.addActionListener(this);
 		lowerP.add(retire);
@@ -304,8 +308,8 @@ public class Client extends JFrame implements ActionListener {
 		}
 		map=othello.getBoard();//盤面状況をオセロクラスから取得
 		JLabel turnLabel=new JLabel();
-		turnLabel.setText(getTurnLabel());//どちらの手番かを表示
-		if(othello.passCheck()==1 && myTurn) {//置けるところがないかつ自分のターン
+		turnLabel.setText(getTurnText());//どちらの手番かを表示
+		if(!Othello.passCheck(othello.getBoard(),getTurn()) && myTurn) {//置けるところがないかつ自分のターン
 			pass.setEnabled(true);//パスできるならボタン有効
 		}
 		for (int i = 0; i < BOARD_BORDER; i++) {
