@@ -1,3 +1,4 @@
+package pl1;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
@@ -59,6 +60,9 @@ public class Client extends JFrame implements ActionListener {
 	final String PASS = "パス";
 	JButton pass = new JButton(PASS);//パス
 
+	CPU cpu;
+	int[] cpuPut=new int [2];
+
 	final int BOARD_BORDER = 8;
 
 	JButton[][] boardBottons = new JButton[BOARD_BORDER][BOARD_BORDER]; //ボタン配列 要素となるボタンはコンストラクタ内で宣言
@@ -73,7 +77,7 @@ public class Client extends JFrame implements ActionListener {
 			{ 0, 0, 0, 0, 0, 0, 0, 0 } };
 	boolean isBlack; //プレイヤが黒ならばtrue
 	boolean myTurn; //自分のターンを管理
-	JLabel turnLabel = new JLabel("");
+	
 	int giveUp=0;//0:投了が押されていない、1:自分が押した、2:相手が押した
 
 	public Client() {
@@ -87,14 +91,35 @@ public class Client extends JFrame implements ActionListener {
 			button.addActionListener(new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
 					int i = button.getI();
-					int state = map[i / 8][i % 8];
-					System.out.println(state);
+					int state = othello.getGridState(i / BOARD_BORDER, i % BOARD_BORDER);
 					myTurn=!myTurn;//手番の入れ替え
 					String data=Integer.toString(i);//ボタン番号をStringに変換
 					if (isBlack && (state == 1 || state == 3)) {
-						sendMessage(data);//サーバーに送信
+						othello.mainboard = Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 1);
+						reflectMap();
+						if (mode == NETWORK) {
+							sendMessage(Integer.toString(i));//サーバーに送信
+						} else {
+							cpu.CPUMain(othello.getBoard());
+							cpuPut = cpu.getMove();
+							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 2);
+							reflectMap();}
 					} else if (!isBlack && (state == 2 || state == 3)) {
-						sendMessage(data);//サーバーに送信
+						Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 2);
+						reflectMap();
+						if (mode == NETWORK) {
+							sendMessage(Integer.toString(i));//サーバーに送信
+						} else {
+							cpu.CPUMain(othello.getBoard());
+							cpuPut = cpu.getMove();
+							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 1);
+							reflectMap();
+						}
+
+					}
+
+					if (othello.endCheck() == 1) {
+						paintResult();
 					}
 					othello.putDisc(getY(data), getX(data));
 					turn++;//経過ターン数をカウント
@@ -113,7 +138,7 @@ public class Client extends JFrame implements ActionListener {
 		
 		getContentPane().removeAll(); //画面のボタンやラベルをリセット
 		setSize(400, 200);
-		JPanel p = new JPanel(); 
+		JPanel p = new JPanel();
 		p.setLayout(null);
 
 		JLabel modeLabel = new JLabel("モードを選択してください");
@@ -252,9 +277,11 @@ public class Client extends JFrame implements ActionListener {
 
 		JButton retire = new JButton("投了");
 		retire.addActionListener(this);
-		//JButton pass = new JButton("パス");//パスボタンはインスタンスで生成
+		JButton pass = new JButton("パス");//パスボタンはインスタンスで生成
 		JLabel otherName = new JLabel("相手："+enemyName+"　あなたは"+Player.getBlackwhite()+"です");
-		//othernameのテキスト設定
+		
+		JLabel turnLabel=new JLabel("あなたの番です");
+		
 		turnLabel.setText(getTurnLabel());//どちらの手番かを表示
 		JPanel lowerP = new JPanel();
 		pass.addActionListener(this);
@@ -276,6 +303,7 @@ public class Client extends JFrame implements ActionListener {
 			paintResult();//リザルト画面
 		}
 		map=othello.getBoard();//盤面状況をオセロクラスから取得
+		JLabel turnLabel=new JLabel();
 		turnLabel.setText(getTurnLabel());//どちらの手番かを表示
 		if(othello.passCheck()==1 && myTurn) {//置けるところがないかつ自分のターン
 			pass.setEnabled(true);//パスできるならボタン有効
@@ -343,10 +371,24 @@ public class Client extends JFrame implements ActionListener {
 	}
 
 	public void paintResult() {
+		String winner = null;
+		switch (othello.judge()) {
+		case "black":
+			winner = "勝者" + Player.getPlayer_name();
+			break;
+		case "white":
+			winner = enemyName;
+			break;
+		case "draw":
+			winner = "引き分け";
+			break;
+		}
 		try {
 			Thread.sleep(3000); // 3秒(1万ミリ秒)間だけ処理を止める
 		} catch (InterruptedException e) {
 		}
+		
+		setSize(400, 200);
 		//白と黒の数をカウント
 		int black=othello.getBlack();
 		int white=othello.getWhite();
@@ -356,33 +398,33 @@ public class Client extends JFrame implements ActionListener {
 		p.setSize(200, 100);
 		p.setLayout(new FlowLayout());
 		System.out.println("result");
-		JLabel result = new JLabel();
-		JLabel 	winner = new JLabel();
+		JLabel resultLabel = new JLabel();
+		JLabel winnerLabel = new JLabel();
 		
 		if(giveUp==1) {//自分が投了したら
-			result.setText("投了しました");
-			winner.setText(enemyName+"の勝ちです");
+			resultLabel.setText("投了しました");
+			winnerLabel.setText(enemyName+"の勝ちです");
 			
 		}else if(giveUp==2) {//相手が投了したら
-			result.setText(enemyName+"が投了しました");
-			winner.setText(Player.getPlayer_name()+"の勝ちです");
+			resultLabel.setText(enemyName+"が投了しました");
+			winnerLabel.setText(Player.getPlayer_name()+"の勝ちです");
 		}
 		
 		else {//普通に対局終了したとき
-			result.setText("黒"+ black+"-"+white+" 白");
+			resultLabel.setText("黒"+ black+"-"+white+" 白");
 			if(Player.getBlackwhite().equals(othello.judge())){
-				winner.setText(Player.getPlayer_name()+"の勝ちです");
+				winnerLabel.setText(Player.getPlayer_name()+"の勝ちです");
 			}else if(Player.getBlackwhite().equals("draw")){
-				winner.setText("引き分け");
+				winnerLabel.setText("引き分け");
 			}else {
-				winner.setText(enemyName+"の勝ちです");
+				winnerLabel.setText(enemyName+"の勝ちです");
 			}
 		}
 		
 		
 		
-		p.add(result);
-		p.add(winner);
+		p.add(resultLabel);
+		p.add(winnerLabel);
 		add(p);
 		revalidate();
 		repaint();
