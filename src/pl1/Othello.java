@@ -1,4 +1,6 @@
-package pl1;
+/*
+変更点　メソッドpassCheck()を先手後手で処理を分けるようにした　大嶋
+ */
 public class Othello {
 	
 	/*
@@ -37,10 +39,10 @@ public class Othello {
 	int[][] mainboard = {
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0},
-			{0, 0, 0, 2, 1, 0, 0, 0},
-			{0, 0, 2, 4, 5, 1, 0, 0},
-			{0, 0, 1, 5, 4, 2, 0, 0},
 			{0, 0, 0, 1, 2, 0, 0, 0},
+			{0, 0, 1, 5, 4, 2, 0, 0},
+			{0, 0, 2, 4, 5, 1, 0, 0},
+			{0, 0, 0, 2, 1, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0}
 			}; // Othelloクラスのインスタンスに対応する盤面データ
@@ -110,15 +112,28 @@ public class Othello {
 	}
 	
 	
-	public int passCheck() {
+	public int passCheck() {//先手と後手で処理を分けた
 		int flag = 0;
-		for(int i=0; i<8; i++) {
-			for(int j=0; j<8; j++) {
-				if(mainboard[i][j] >= 1 && mainboard[i][j] <= 3) {
-					flag = 1;
+		if(turn==0) {//先手/黒
+			for(int i=0; i<8; i++) {
+				for(int j=0; j<8; j++) {
+					if(mainboard[i][j] == 1 || mainboard[i][j] == 3) {
+						flag = 1;
+					}
 				}
 			}
 		}
+		
+		if(turn==1) {//後手/白
+			for(int i=0; i<8; i++) {
+				for(int j=0; j<8; j++) {
+					if(mainboard[i][j] == 2 || mainboard[i][j] == 3) {
+						flag = 1;
+					}
+				}
+			}
+		}
+		
 		if (flag == 0) {
 			return 1;
 		} else {
