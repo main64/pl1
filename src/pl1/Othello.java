@@ -37,7 +37,7 @@ public class Othello {
 	
 	
 //	クラス変数
-	int[][] mainboard = {
+	static int[][] mainboard = {
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 1, 2, 0, 0, 0},
@@ -47,7 +47,7 @@ public class Othello {
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0}
 			}; // Othelloクラスのインスタンスに対応する盤面データ
-	int turn = 0; // インスタンスに対応する手番データ(0:先手/黒 1:後手/白)
+	static int turn = 0; // インスタンスに対応する手番データ(0:先手/黒 1:後手/白)
 	
 	
 	
@@ -113,7 +113,7 @@ public class Othello {
 	}
 	
 	
-	public int passCheck() {//先手と後手で処理を分けた
+	public static boolean passCheck(int board[][], int c) {//先手と後手で処理を分けた
 		int flag = 0;
 		if(turn==0) {//先手/黒
 			for(int i=0; i<8; i++) {
@@ -136,9 +136,9 @@ public class Othello {
 		}
 		
 		if (flag == 0) {
-			return 1;
+			return false;
 		} else {
-			return 0;
+			return true;
 		}
 	}
 	
