@@ -68,7 +68,7 @@ public class Client extends JFrame implements ActionListener {
 	CPU cpu;
 	int[] cpuPut = new int[2];//操作情報
 
-	JButton[][] boardBottons = new JButton[BOARD_BORDER][BOARD_BORDER]; //ボタン配列 要素となるボタンはコンストラクタ内で宣言
+	BoardButton[][] boardBottons = new BoardButton[BOARD_BORDER][BOARD_BORDER]; //ボタン配列 要素となるボタンはコンストラクタ内で宣言
 	int map[][] = { 
 			{ 0, 0, 0, 0, 0, 0, 0, 0 },
 			{ 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -265,7 +265,7 @@ public class Client extends JFrame implements ActionListener {
 	
 	public void chooseLevel() {
 		setSize(1200, 300);
-		setLayout(new BorderLayout(1, 3));
+		setLayout(new GridLayout(5, 1));
 
 		getContentPane().removeAll(); //画面のボタンやラベルをリセット
 		JPanel p = new JPanel();
@@ -273,11 +273,11 @@ public class Client extends JFrame implements ActionListener {
 
 		JLabel titleText = new JLabel("難易度の選択");
 		add(titleText);
-		titleText.setBounds(120, 20, 200, 30);
+		
 
 		JLabel levelText = new JLabel("難易度を選択してください");
 		add(levelText);
-		levelText.setBounds(120, 100, 200, 30);
+		
 
 		JButton easyButton = new JButton(EASY);
 		p.add(easyButton);
@@ -291,7 +291,8 @@ public class Client extends JFrame implements ActionListener {
 		Color defaultColor = UIManager.getColor("Button.background");
         Border defaultBorder = UIManager.getBorder("Button.border");
         
-		ActionListener levelButtonListener = new ActionListener() {
+		
+        ActionListener levelButtonListener = new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 JButton clickedButton = (JButton) e.getSource();
                 mode=e.getActionCommand();
@@ -310,7 +311,6 @@ public class Client extends JFrame implements ActionListener {
         easyButton.addActionListener(levelButtonListener);
         normalButton.addActionListener(levelButtonListener);
         hardButton.addActionListener(levelButtonListener);
-        
 		
 		if(mode==LOCAL) {
 			JPanel bwp=new JPanel();
@@ -348,14 +348,15 @@ public class Client extends JFrame implements ActionListener {
 	        
 			bwp.add(black);
 			bwp.add(white);
-			p.add(bwp);
+			add(bwp);
 		}
 		
-
+		
+        add(p);
 		JButton ok=new JButton("対局開始");
 		ok.addActionListener(this);
-		p.add(ok);
-		add(p);
+		add(ok);
+		
 
 		revalidate();
 		repaint();
@@ -427,42 +428,7 @@ public class Client extends JFrame implements ActionListener {
 		}
 		for (int i = 0; i < BOARD_BORDER; i++) {
 			for (int j = 0; j < BOARD_BORDER; j++) {
-				switch (map[i][j]) {
-				case 0:
-					boardBottons[i][j].repaint();
-					boardBottons[i][j].setEnabled(false);
-
-					break;
-				case 1:
-					boardBottons[i][j].repaint();
-					boardBottons[i][j].setEnabled(isBlack);
-					if (!myTurn) {//自分のターンで無ければ押せない
-						boardBottons[i][j].setEnabled(false);
-					}
-					break;
-				case 2:
-					boardBottons[i][j].repaint();
-					boardBottons[i][j].setEnabled(!isBlack);
-					if (!myTurn) {
-						boardBottons[i][j].setEnabled(false);
-					}
-					break;
-				case 3:
-					boardBottons[i][j].repaint();
-					boardBottons[i][j].setEnabled(true);
-					if (!myTurn) {
-						boardBottons[i][j].setEnabled(false);
-					}
-					break;
-				case 4:
-					boardBottons[i][j].repaint();
-					boardBottons[i][j].setEnabled(false);
-					break;
-				case 5:
-					boardBottons[i][j].repaint();
-					boardBottons[i][j].setEnabled(false);
-					break;
-				}
+				boardBottons[i][j].reflectMapButton(map[i][j]);
 			}
 		}
 		revalidate();
@@ -482,10 +448,26 @@ public class Client extends JFrame implements ActionListener {
 
 	class BoardButton extends JButton { //盤面のボタンに用いる 何番目のボタンかを示す整数型変数 i を保持
 
-		int i;
+		int i, preMapState, nowMapState;
+
+		public int getNowMapState() {
+			return nowMapState;
+		}
+
+		public void setNowMapState(int preState) {
+			this.nowMapState = preState;
+		}
 
 		public BoardButton(int i) {
 			setI(i);
+		}
+
+		public int getPreMapState() {
+			return preMapState;
+		}
+
+		public void setPreMapState(int premapState) {
+			this.preMapState = premapState;
 		}
 
 		public int getI() {
@@ -495,23 +477,107 @@ public class Client extends JFrame implements ActionListener {
 		public void setI(int i) {
 			this.i = i;
 		}
+
+		public void reflectMapButton(int nowState) {
+			this.setNowMapState(nowState);
+			this.repaint();
+
+			switch (nowState) {
+			case 0:
+				this.setEnabled(false);
+				break;
+			case 1:
+				this.setEnabled(isBlack);
+				if (!myTurn) {//自分のターンで無ければ押せない
+					this.setEnabled(false);
+				}
+				break;
+			case 2:
+				this.setEnabled(!isBlack);
+				if (!myTurn) {
+					this.setEnabled(false);
+				}
+				break;
+			case 3:
+				this.setEnabled(true);
+				if (!myTurn) {
+					this.setEnabled(false);
+				}
+				break;
+			case 4:
+				this.setEnabled(false);
+				break;
+			case 5:
+				this.setEnabled(false);
+				break;
+			}
+			this.setPreMapState(nowState);
+
+		}
+
 		protected void paintComponent(Graphics g) {
 			super.paintComponent(g);
-
-			g.setColor(Color.GREEN);
-			g.fillRect(0, 0, getWidth(), getHeight());
-
 			int diameter = Math.min(getWidth(), getHeight()) - 10;
 			int x = (getWidth() - diameter) / 2;
 			int y = (getHeight() - diameter) / 2;
-
-			//コマを描く
-			if (map[i / BOARD_BORDER][i % BOARD_BORDER] == 4) {
-
+			switch (this.getNowMapState()) {
+			case 0:
+				g.setColor(Color.GREEN);
+				g.fillRect(0, 0, getWidth(), getHeight());
+				break;
+			case 1:
+				if (myTurn && isBlack) {
+					g.setColor(Color.RED);
+					
+				} else {
+					g.setColor(Color.GREEN);
+				}
+				g.fillRect(0, 0, getWidth(), getHeight());
+				break;
+			case 2:
+				if (myTurn && !isBlack) {
+					g.setColor(Color.RED);
+				} else {
+					g.setColor(Color.GREEN);
+				}
+				g.fillRect(0, 0, getWidth(), getHeight());
+				break;
+			case 3:
+				if (myTurn) {
+					g.setColor(Color.RED);
+				} else {
+					g.setColor(Color.GREEN);
+				}
+				g.fillRect(0, 0, getWidth(), getHeight());
+				break;
+			case 4:
+				g.setColor(Color.GREEN);
+				g.fillRect(0, 0, getWidth(), getHeight());
 				g.setColor(Color.BLACK);
 				g.fillOval(x, y, diameter, diameter);
+				break;
+			case 5:
+				g.setColor(Color.GREEN);
+				g.fillRect(0, 0, getWidth(), getHeight());
+				g.setColor(Color.WHITE);
 
-			} else if (map[i / BOARD_BORDER][i % BOARD_BORDER] == 5) {
+				g.fillOval(x, y, diameter, diameter);
+				break;
+			}
+			if ((this.getNowMapState() == 1 && isBlack)
+					|| (this.getNowMapState() == 2 && !isBlack)
+					|| this.getNowMapState() == 3) {
+				g.setColor(Color.RED);
+			} else {
+				g.setColor(Color.GREEN);
+			}
+			g.fillRect(0, 0, getWidth(), getHeight());
+
+			//コマを描く
+			if (this.getNowMapState() == 4) {
+				g.setColor(Color.BLACK);
+				g.fillOval(x, y, diameter, diameter);
+			} else if (this.getNowMapState() == 5) {
 				g.setColor(Color.WHITE);
 				g.fillOval(x, y, diameter, diameter);
 
