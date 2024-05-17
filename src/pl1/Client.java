@@ -1,5 +1,3 @@
-package pl1;
-
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
@@ -14,12 +12,17 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Timer;
+import java.util.TimerTask;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import javax.swing.UIManager;
+import javax.swing.border.Border;
 import javax.swing.border.LineBorder;
 
 /*クライアントプログラムのうち画面描画に関するものである
@@ -29,44 +32,44 @@ import javax.swing.border.LineBorder;
                                                              瀬野 拓実*/
 
 /*
- 変更点（5/10）時点　　　大嶋
- 画面遷移に待機中画面を追加(waitMode()メソッド)、（データの通信の判断をしやすくするため）NameReceiverおよびColorReceiverクラスのスレッドがそれぞれの情報を受け取ったら終了するように変更
- データの受信は先手後手情報、名前の順番
- ネットワーク対局を選択->相手が接続するのを待機画面で待つ->相手が接続したら名前の入力->お互いが入力するまで待機->対局画面
- 
- 
- */
+変更点（5/10）時点　　　大嶋
+画面遷移に待機中画面を追加(waitMode()メソッド)、（データの通信の判断をしやすくするため）NameReceiverおよびColorReceiverクラスのスレッドがそれぞれの情報を受け取ったら終了するように変更
+データの受信は先手後手情報、名前の順番
+ネットワーク対局を選択->相手が接続するのを待機画面で待つ->相手が接続したら名前の入力->お互いが入力するまで待機->対局画面
+
+
+*/
 
 public class Client extends JFrame implements ActionListener {
 	private static PrintWriter out;//データ送信用オブジェクト
 	private NameReceiver name_receiver; //データ受信用オブジェクト
 	private ColorReceiver color_receiver; //データ受信用オブジェクト
-	private MoveReceiver move_receiver; //操作情報データ受信用オブジェクト
+	private MoveReceiver move_receiver; //データ受信用オブジェクト
+	private ConnectionChecker connectionChecker;
 	private static String enemyName;//相手の名前
 	private static int hand;//操作情報
-	private static int turn = 0;//ターン数をカウント
+	private String mode; //対戦モードやコンピュータ難易度を示す
+	private static int x, y;//コマの座標
 	Othello othello = new Othello();//オセロクラスのオブジェクトを生成
-
-	private String mode; //以下の5つの文字列のいずれか 
-	private int x, y;//コマの座標
-
+	
 	final String EASY = "やさしい"; //コンピュータレベルを指す 3つのいずれかならば同時にローカル対戦中である
 	final String NORMAL = "ふつう";
 	final String HARD = "難しい";
 
-	final String LOCAL = "ローカル";
+	final String LOCAL = "ローカル"; //対戦モードを示す
 	final String NETWORK = "ネットワーク";
 
 	final String PASS = "パス";
 	JButton pass = new JButton(PASS);//パス
+	JLabel turnLabel = new JLabel();//切り替えるためインスタンスで宣言
+	
+	final int BOARD_BORDER = 8; //オセロの行数・列数
 
 	CPU cpu;
-	int[] cpuPut = new int[2];
-
-	final int BOARD_BORDER = 8;
+	int[] cpuPut = new int[2];//操作情報
 
 	JButton[][] boardBottons = new JButton[BOARD_BORDER][BOARD_BORDER]; //ボタン配列 要素となるボタンはコンストラクタ内で宣言
-	int map[][] = { //環境テスト用
+	int map[][] = { 
 			{ 0, 0, 0, 0, 0, 0, 0, 0 },
 			{ 0, 0, 0, 0, 0, 0, 0, 0 },
 			{ 0, 0, 0, 1, 2, 0, 0, 0 },
@@ -75,12 +78,11 @@ public class Client extends JFrame implements ActionListener {
 			{ 0, 0, 0, 2, 1, 0, 0, 0 },
 			{ 0, 0, 0, 0, 0, 0, 0, 0 },
 			{ 0, 0, 0, 0, 0, 0, 0, 0 } };
+	
 	boolean isBlack; //プレイヤが黒ならばtrue
 	static boolean myTurn; //自分のターンを管理
-
 	int giveUp = 0;//0:投了が押されていない、1:自分が押した、2:相手が押した
-
-	public Client() {
+	public Client() {  //コンストラクタ 盤面のボタンについて定義している
 
 		super("Othello");
 		setResizable(true); //現時点ではフレームのサイズ変更はできない前提で書いている
@@ -88,42 +90,67 @@ public class Client extends JFrame implements ActionListener {
 
 		for (int i = 0; i < 64; i++) {
 			BoardButton button = new BoardButton(i); //新しく宣言したBoardButtonクラスのインスタンス
-			button.addActionListener(new ActionListener() {
+			button.addActionListener(new ActionListener() { //盤面のボタンが押されたときの動作を定義
 				public void actionPerformed(ActionEvent e) {
 					int i = button.getI();
-					int state = othello.getGridState(i / BOARD_BORDER, i % BOARD_BORDER);
+					int state = othello.getGridState(i / BOARD_BORDER, i % BOARD_BORDER); //オセロクラスから盤面の状態を受け取る
 					myTurn = !myTurn;//手番の入れ替え
-					String data = Integer.toString(i);//ボタン番号をStringに変換
-					if (isBlack && (state == 1 || state == 3)) {
-						Othello.mainboard = Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 1);
-						reflectMap();
-						if (mode == NETWORK) {
+					String data=Integer.toString(i);//ボタン番号をStringに変換
+					if (isBlack && (state == 1 || state == 3)) { //自身が黒かつ黒が置けるならば
+						//othello.mainboard = Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 1); //盤面を更新
+						othello.putDisc(getY(data), getX(data));//自分の手
+						System.out.println(othello.getDiscnum());
+						reflectMap();//盤面情報を盤面ボタンに反映
+						if (mode == NETWORK) { //ネットワーク対戦の場合
 							sendMessage(Integer.toString(i));//サーバーに送信
-						} else {
-							cpu.CPUMain(othello.getBoard());
-							cpuPut = cpu.getMove();
-							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 2);
-							reflectMap();
+						} else { //ローカル対戦の場合
+							
+							TimerTask task = new TimerTask() {
+						        public void run() {
+						         cpu.CPUMain(othello); //CPUに盤面情報を引き渡す
+						         cpuPut = cpu.getMove(); //CPUが探索した結果を受け取る
+						         if(cpuPut[0] != -1 & cpuPut[1] != -1) {
+						        	 othello.putDisc(cpuPut[0], cpuPut[1]); //盤面を更新
+						         }
+						         myTurn=!myTurn;//CPUが置いたとき手番を反転
+						         reflectMap();//盤面情報を盤面ボタンに反映
+						        }
+						       };
+						       Timer timer = new Timer();
+						       timer.schedule(task, 1000);
 						}
-					} else if (!isBlack && (state == 2 || state == 3)) {
-						Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 2);
-						reflectMap();
+
+					} else if (!isBlack && (state == 2 || state == 3)) { //自身が白かつ白が置けるならば
+						//Othello.update(othello.getBoard(), i / BOARD_BORDER, i % BOARD_BORDER, 2);
+						othello.putDisc(getY(data), getX(data));//自分の手
+						System.out.println(othello.getDiscnum());
+						reflectMap();//盤面情報を盤面ボタンに反映
 						if (mode == NETWORK) {
 							sendMessage(Integer.toString(i));//サーバーに送信
-						} else {
-							cpu.CPUMain(othello.getBoard());
-							cpuPut = cpu.getMove();
-							Othello.update(othello.getBoard(), cpuPut[0], cpuPut[1], 1);
-							reflectMap();
+						} else {//ローカル対戦の場合
+							
+							TimerTask task = new TimerTask() {
+						        public void run() {
+						         cpu.CPUMain(othello); //CPUに盤面情報を引き渡す
+						         cpuPut = cpu.getMove(); //CPUが探索した結果を受け取る
+						         if(cpuPut[0] != -1 & cpuPut[1] != -1) {
+						         	othello.putDisc(cpuPut[0], cpuPut[1]); //盤面を更新
+						         }
+						         myTurn=!myTurn;//CPUが置いたとき手番を反転
+						         reflectMap();//盤面情報を盤面ボタンに反映
+						        }
+						       };
+						       Timer timer = new Timer();
+						       timer.schedule(task, 1000);
 						}
 
 					}
-
-					if (othello.endCheck() == 1) {
-						paintResult();
+										
+					if (othello.endCheck() == 1) { //ゲームが終了しているか確認
+						paintResult(); //結果を出力
 					}
-					othello.putDisc(getY(data), getX(data));
-					turn++;//経過ターン数をカウント
+					
+					
 					reflectMap();
 				}
 			});
@@ -142,7 +169,7 @@ public class Client extends JFrame implements ActionListener {
 		JPanel p = new JPanel();
 		p.setLayout(null);
 
-		JLabel modeLabel = new JLabel("モードを選択してください");
+		JLabel modeLabel = new JLabel("モードを選択してください"); 
 		modeLabel.setBounds(120, 20, 200, 30);
 		p.add(modeLabel);
 
@@ -160,9 +187,9 @@ public class Client extends JFrame implements ActionListener {
 		setVisible(true);
 	}
 
-	public void setName() {
+	public void setName() {//ネットワーク対戦を選択時にプレイヤ名を入力
 
-		System.out.println("setName");//テスト用出力
+
 		getContentPane().removeAll(); //画面のボタンやラベルをリセット
 		JPanel p = new JPanel();
 		p.setLayout(new FlowLayout());
@@ -179,7 +206,8 @@ public class Client extends JFrame implements ActionListener {
 					Player.setPlayer_name(textArea.getText());
 					waitMode();//対戦準備
 					sendMessage(textArea.getText());//サーバに名前を送信
-					//paintGame(); //対局画面描画に移行 
+					//対戦OKかどうかサーバから応答がほしい
+					
 				}
 			}
 		});
@@ -198,7 +226,6 @@ public class Client extends JFrame implements ActionListener {
 		revalidate();
 		repaint();
 	}
-
 	public void waitMode() {
 		System.out.println("待機中");//テスト用出力
 		getContentPane().removeAll(); //画面のボタンやラベルをリセット
@@ -211,51 +238,141 @@ public class Client extends JFrame implements ActionListener {
 		add(p);
 		setVisible(true);
 	}
+	public void toCPU() {//cpu対戦に移行するとき
+		getContentPane().removeAll(); //画面のボタンやラベルをリセット
+		System.out.println("サーバーからエラーメッセージを受信");//テスト用出力
+		JPanel p = new JPanel();
+		p.setLayout(new FlowLayout());
 
+		JLabel label = new JLabel("相手プレイヤーが切断しました。ローカルモードに移行します");
+		p.add(label);
+		
+		JButton okButton = new JButton("OK");
+		p.add(okButton);
+		add(p);
+		setVisible(true);
+		ActionListener ButtonListener = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				chooseLevel();
+			}
+			
+		};
+		okButton.addActionListener(ButtonListener);
+		
+	}
+	
+	
+	
 	public void chooseLevel() {
+		setSize(1200, 300);
+		setLayout(new BorderLayout(1, 3));
 
 		getContentPane().removeAll(); //画面のボタンやラベルをリセット
 		JPanel p = new JPanel();
 		p.setLayout(new GridBagLayout());
 
 		JLabel titleText = new JLabel("難易度の選択");
-		p.add(titleText);
+		add(titleText);
 		titleText.setBounds(120, 20, 200, 30);
 
 		JLabel levelText = new JLabel("難易度を選択してください");
-		p.add(levelText);
-		levelText.setBounds(120, 150, 200, 30);
+		add(levelText);
+		levelText.setBounds(120, 100, 200, 30);
 
 		JButton easyButton = new JButton(EASY);
 		p.add(easyButton);
-		easyButton.addActionListener(this);
 
 		JButton normalButton = new JButton(NORMAL);
 		p.add(normalButton);
-		normalButton.addActionListener(this);
-
+		
 		JButton hardButton = new JButton(HARD);
 		p.add(hardButton);
-		hardButton.addActionListener(this);
+		
+		Color defaultColor = UIManager.getColor("Button.background");
+        Border defaultBorder = UIManager.getBorder("Button.border");
+        
+		ActionListener levelButtonListener = new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                JButton clickedButton = (JButton) e.getSource();
+                mode=e.getActionCommand();
+                // すべてのボタンの色と枠線をデフォルトに戻す
+                resetButtons(easyButton, defaultColor, defaultBorder);
+                resetButtons(normalButton, defaultColor, defaultBorder);
+                resetButtons(hardButton, defaultColor, defaultBorder);
 
+                // 押されたボタンの色と枠線を変更
+                clickedButton.setBackground(Color.YELLOW);
+                clickedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 3));
+            }
+        };
+
+        // ボタンにイベントリスナーを追加
+        easyButton.addActionListener(levelButtonListener);
+        normalButton.addActionListener(levelButtonListener);
+        hardButton.addActionListener(levelButtonListener);
+        
+		
+		if(mode==LOCAL) {
+			JPanel bwp=new JPanel();
+			JLabel bwtext=new JLabel("先手後手を選んでください");
+			bwp.add(bwtext);
+			JButton black=new JButton("先手:黒");
+			JButton white=new JButton("後手:白");
+			
+			
+			ActionListener bwButtonListener = new ActionListener() {
+	            public void actionPerformed(ActionEvent e) {
+	            	if(e.getActionCommand()=="先手:黒") {
+	            		isBlack=true;
+	            		myTurn=true;
+	 
+	            	}else {
+	            		isBlack=false;
+	            		myTurn=false;
+	            	}
+	            	
+	                JButton clickedButton = (JButton) e.getSource();
+
+	                // すべてのボタンの色と枠線をデフォルトに戻す
+	                resetButtons(black, defaultColor, defaultBorder);
+	                resetButtons(white, defaultColor, defaultBorder);
+
+	                // 押されたボタンの色と枠線を変更
+	                clickedButton.setBackground(Color.YELLOW);
+	                clickedButton.setBorder(BorderFactory.createLineBorder(Color.RED, 3));
+	                
+	            }
+	        };
+	        black.addActionListener(bwButtonListener);
+	        white.addActionListener(bwButtonListener);
+	        
+			bwp.add(black);
+			bwp.add(white);
+			p.add(bwp);
+		}
+		
+
+		JButton ok=new JButton("対局開始");
+		ok.addActionListener(this);
+		p.add(ok);
 		add(p);
 
 		revalidate();
 		repaint();
 	}
+	 private static void resetButtons(JButton button, Color defaultColor, Border defaultBorder) {
+	        button.setBackground(defaultColor);
+	        button.setBorder(defaultBorder);
+	 }
 
-	public String getTurnText() {//画面に手番の表示をするためのメソッド
-		if (myTurn) {
-			return "あなたの番です";
-		} else {
-			return "相手の番です";
-		}
+	 public String getTurnText() {//画面に手番の表示をするためのメソッド
+			if (myTurn) {
+				return "あなたの番です";
+			} else {
+				return "相手の番です";
+			}
 	}
-
-	public static int getTurn() {
-		return turn;
-	}
-
+		
 	public void paintGame() {
 
 		getContentPane().removeAll(); //画面のボタンやラベルをリセット
@@ -279,10 +396,9 @@ public class Client extends JFrame implements ActionListener {
 
 		JButton retire = new JButton("投了");
 		retire.addActionListener(this);
-		JButton pass = new JButton("パス");//パスボタンはインスタンスで生成
 		JLabel otherName = new JLabel("相手：" + enemyName + "　あなたは" + Player.getBlackwhite() + "です");
 
-		JLabel turnLabel = new JLabel("あなたの番です");
+		//JLabel turnLabel = new JLabel("あなたの番です");
 
 		turnLabel.setText(getTurnText());//どちらの手番かを表示
 		JPanel lowerP = new JPanel();
@@ -298,16 +414,15 @@ public class Client extends JFrame implements ActionListener {
 		setVisible(true);
 		reflectMap();
 
+
 	}
 
 	public void reflectMap() {
-		if (othello.endCheck() == 1) {//終了なら
-			paintResult();//リザルト画面
-		}
+		
 		map = othello.getBoard();//盤面状況をオセロクラスから取得
-		JLabel turnLabel = new JLabel();
+		
 		turnLabel.setText(getTurnText());//どちらの手番かを表示
-		if (!Othello.passCheck(othello.getBoard(), getTurn()) && myTurn) {//置けるところがないかつ自分のターン
+		if (!Othello.passCheck(othello.getBoard(),othello.turn+1) && myTurn) {//置けるところがないかつ自分のターン
 			pass.setEnabled(true);//パスできるならボタン有効
 		}
 		for (int i = 0; i < BOARD_BORDER; i++) {
@@ -352,6 +467,16 @@ public class Client extends JFrame implements ActionListener {
 		}
 		revalidate();
 		repaint();
+		if (othello.endCheck() == 1) {//終了なら
+			TimerTask task = new TimerTask() {
+		        public void run() {
+		        	paintResult();//リザルト画面
+		        }
+		       };
+		       Timer timer = new Timer();
+		       timer.schedule(task, 2000);
+			
+		}
 
 	}
 
@@ -370,7 +495,6 @@ public class Client extends JFrame implements ActionListener {
 		public void setI(int i) {
 			this.i = i;
 		}
-
 		protected void paintComponent(Graphics g) {
 			super.paintComponent(g);
 
@@ -381,7 +505,7 @@ public class Client extends JFrame implements ActionListener {
 			int x = (getWidth() - diameter) / 2;
 			int y = (getHeight() - diameter) / 2;
 
-			// 背景を塗りつぶす
+			//コマを描く
 			if (map[i / BOARD_BORDER][i % BOARD_BORDER] == 4) {
 
 				g.setColor(Color.BLACK);
@@ -392,13 +516,15 @@ public class Client extends JFrame implements ActionListener {
 				g.fillOval(x, y, diameter, diameter);
 
 			}
-
-			// 円を描画
 		}
 
 	}
 
 	public void paintResult() {
+		if(Player.getPlayer_name()==null) {
+			Player.setPlayer_name("Player");
+		}
+		
 		String winner = null;
 		switch (othello.judge()) {
 		case "black":
@@ -411,17 +537,14 @@ public class Client extends JFrame implements ActionListener {
 			winner = "引き分け";
 			break;
 		}
-		try {
-			Thread.sleep(3000); // 3秒(1万ミリ秒)間だけ処理を止める
-		} catch (InterruptedException e) {
-		}
+		
 
 		setSize(400, 200);
 		//白と黒の数をカウント
 		int black = othello.getBlack();
 		int white = othello.getWhite();
-
 		getContentPane().removeAll();
+		
 		JPanel p = new JPanel();
 		p.setSize(200, 100);
 		p.setLayout(new FlowLayout());
@@ -454,6 +577,7 @@ public class Client extends JFrame implements ActionListener {
 		add(p);
 		revalidate();
 		repaint();
+	
 	}
 
 	public static void main(String[] args) {
@@ -464,6 +588,7 @@ public class Client extends JFrame implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
+		
 		switch (e.getActionCommand()) {
 		case EASY://コンピュータのレベル選び段階
 		case NORMAL:
@@ -478,21 +603,87 @@ public class Client extends JFrame implements ActionListener {
 		case NETWORK: //モード設定段階
 			mode = NETWORK;
 			waitMode();//対戦準備
-			connectServer("localhost", 10000);//引数は仮
+			connectServer("172.20.10.11", 10000);//引数は仮
 			//setName(); //プレイヤの名前設定に移行
 			break;
 		case "投了":
 			giveUp = 1;//自身が投了したことを判定
-			sendMessage("投了");//サーバーに送信
+			if(mode==NETWORK) {
+				sendMessage("投了");//サーバーに送信
+			}
 			paintResult();
 			break;
 		case PASS: //パスの処理
 			System.out.println("パスが押されました");
 			myTurn = !myTurn;//手番を反転
 			othello.pass();//オセロクラスのターンを変更
-			sendMessage("パス");//パス情報をサーバーに送信
+			if(mode==NETWORK) {//ネットワーク対戦なら
+				sendMessage("パス");//パス情報をサーバーに送信
+			}else {//ローカルの時
+				TimerTask task = new TimerTask() {
+			        public void run() {
+			         cpu.CPUMain(othello); //CPUに盤面情報を引き渡す
+			         cpuPut = cpu.getMove(); //CPUが探索した結果を受け取る
+			         if(cpuPut[0] != -1 & cpuPut[1] != -1) {
+			        	 othello.putDisc(cpuPut[0], cpuPut[1]); //盤面を更新
+			         }
+			         myTurn=!myTurn;//CPUが置いたとき手番を反転
+			         reflectMap();//盤面情報を盤面ボタンに反映
+			        }
+				};
+				Timer timer = new Timer();
+			    timer.schedule(task, 1000);
+			}
+			
 			pass.setEnabled(false);//パスボタンを無効
 			reflectMap();
+			break;
+		case "対局開始":
+			if(isBlack) {
+				cpu = new CPU(mode,"black");
+				Player.setBlackwhite("black");
+				enemyName = mode;
+				paintGame();
+				if(!myTurn) {
+					TimerTask task = new TimerTask() {
+				        public void run() {
+				         cpu.CPUMain(othello); //CPUに盤面情報を引き渡す
+				         cpuPut = cpu.getMove(); //CPUが探索した結果を受け取る
+				         if(cpuPut[0] != -1 & cpuPut[1] != -1) {
+				        	 othello.putDisc(cpuPut[0], cpuPut[1]); //盤面を更新
+				         }
+				         myTurn=!myTurn;//CPUが置いたとき手番を反転
+				         reflectMap();//盤面情報を盤面ボタンに反映
+				        }
+					};
+					Timer timer = new Timer();
+				    timer.schedule(task, 1000);
+				}
+				
+			}
+			else {
+				cpu=new CPU(mode,"white");
+				Player.setBlackwhite("white");
+				enemyName = mode;
+				paintGame();
+				if(!myTurn) {
+					
+					TimerTask task = new TimerTask() {
+				        public void run() {
+				         cpu.CPUMain(othello); //CPUに盤面情報を引き渡す
+				         cpuPut = cpu.getMove(); //CPUが探索した結果を受け取る
+				         if(cpuPut[0] != -1 & cpuPut[1] != -1) {
+				        	 othello.putDisc(cpuPut[0], cpuPut[1]); //盤面を更新
+				         }
+				         myTurn=!myTurn;//CPUが置いたとき手番を反転
+				         reflectMap();//盤面情報を盤面ボタンに反映
+				        }
+					};
+					Timer timer = new Timer();
+					timer.schedule(task, 1000);
+				}
+			}
+		
 			break;
 		}
 
@@ -501,13 +692,18 @@ public class Client extends JFrame implements ActionListener {
 	// メソッド
 	public void connectServer(String ipAddress, int port) { // サーバに接続
 		Socket socket = null;
+		Socket checkSocket = null;
+		
 		try {
 			socket = new Socket(ipAddress, port); //サーバ(ipAddress, port)に接続
+			checkSocket = new Socket(ipAddress, port+1);
 			out = new PrintWriter(socket.getOutputStream(), true); //データ送信用オブジェクトの用意
 			color_receiver = new ColorReceiver(socket); //先手後手受信用オブジェクトの準備
 			color_receiver.start();//受信用オブジェクト(スレッド)起動
 			name_receiver = new NameReceiver(socket); //名前受信用オブジェクトの準備
 			move_receiver = new MoveReceiver(socket); //操作情報データ受信用オブジェクト
+			connectionChecker = new ConnectionChecker(checkSocket);
+			connectionChecker.start();
 		} catch (UnknownHostException e) {
 			System.err.println("ホストのIPアドレスが判定できません: " + e);
 			System.exit(-1);
@@ -515,6 +711,7 @@ public class Client extends JFrame implements ActionListener {
 			System.err.println("サーバ接続時にエラーが発生しました: " + e);
 			System.exit(-1);
 		}
+		
 	}
 
 	public static void sendMessage(String msg) { // サーバに操作情報を送信
@@ -588,10 +785,12 @@ public class Client extends JFrame implements ActionListener {
 						if (inputLine.equals("black")) {//先手後手を判定して変数を設定
 							isBlack = true;
 							myTurn = true;//先手
-						} else {
+						}
+						else {
 							isBlack = false;
 							myTurn = false;//後手
 						}
+						
 						stopRunning();//スレッド停止
 						Client.this.setName();
 						//System.out.println(myTurn);//テスト用
@@ -632,7 +831,6 @@ public class Client extends JFrame implements ActionListener {
 					String inputLine = br.readLine();//受信データを一行分読み込む
 					if (inputLine != null) {//データを受信したら
 						myTurn = !myTurn;//データ受信したらターンを変更
-						turn++;//経過ターン数をカウント
 						receiveMessage(inputLine);//データ受信用メソッドを呼び出す
 					}
 				}
@@ -642,6 +840,48 @@ public class Client extends JFrame implements ActionListener {
 			}
 		}
 	}
+	
+	class ConnectionChecker extends Thread {
+		  private InputStreamReader isr; //受信データ用文字ストリーム
+		  private BufferedReader br; //文字ストリーム用バッファ
+		  private PrintWriter out; //データ送信用オブジェクト
+		  private Socket socket;
+		  
+		  //内部クラスConnectionCheckerのコンストラクタ
+		  ConnectionChecker(Socket socket) {
+		   try {
+		    isr = new InputStreamReader(socket.getInputStream()); //受信データ用ストリームを用意
+		    br = new BufferedReader(isr); //受信データ用バッファを用意
+		    this.socket = socket;
+		   } catch(IOException e) {
+		    System.err.println("データ受信時にエラーが発生しました: " + e);
+		   }
+		  }
+		  
+		  //内部クラスConnectionCheckerのメソッド
+		  public void run() {
+		   try {
+		    out = new PrintWriter(socket.getOutputStream(), true);
+		    while(true) { //データを受信し続ける
+		     out.println("check"); 
+		              out.flush();
+		     Thread.sleep(2000);
+		     
+		     String inputline = br.readLine(); //データを1行分読み込む
+		     if(inputline != null) { //データを受信したら
+		      socket.setSoTimeout(10000);
+		      System.out.println("from server" + ": " + inputline); //読み込んだ内容をサーバに出力する(確認用)
+		      out.println("check"); 
+		                  out.flush();
+		                  Thread.sleep(2000);
+		     }
+		    }
+		   } catch(Exception e) { //接続が切れたとき
+			   
+		    System.err.println(e);
+		   }
+		  }
+		 }
 
 	public void receiveMessage(String msg) { // メッセージの受信
 		System.out.println("サーバからメッセージ " + msg + " を受信しました"); //テスト用標準出力
@@ -651,7 +891,14 @@ public class Client extends JFrame implements ActionListener {
 		} else if (msg.equals("投了")) {
 			giveUp = 2;//相手が押したことを判定
 			paintResult();//相手が投了したらリザルト画面
-		} else {//パスでも投了でもなければ
+		}else if(msg.equals("-1")) {
+			System.out.println("ローカルに移りマス");
+			System.out.println("");
+			toCPU();//ローカル対戦に
+			
+			
+		}
+		else {//パスでも投了でもなければ
 			othello.putDisc(getY(msg), getX(msg));//コマを置く
 		}
 		reflectMap();//盤面を更新

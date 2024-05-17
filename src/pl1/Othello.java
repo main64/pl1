@@ -1,7 +1,4 @@
-package pl1;
-/*
-変更点　メソッドpassCheck()を先手後手で処理を分けるようにした　大嶋
- */
+
 public class Othello {
 	
 	/*
@@ -37,17 +34,18 @@ public class Othello {
 	
 	
 //	クラス変数
-	static int[][] mainboard = {
+	int[][] mainboard = {
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0},
-			{0, 0, 0, 1, 2, 0, 0, 0},
-			{0, 0, 1, 5, 4, 2, 0, 0},
-			{0, 0, 2, 4, 5, 1, 0, 0},
 			{0, 0, 0, 2, 1, 0, 0, 0},
+			{0, 0, 2, 4, 5, 1, 0, 0},
+			{0, 0, 1, 5, 4, 2, 0, 0},
+			{0, 0, 0, 1, 2, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0},
 			{0, 0, 0, 0, 0, 0, 0, 0}
 			}; // Othelloクラスのインスタンスに対応する盤面データ
-	static int turn = 0; // インスタンスに対応する手番データ(0:先手/黒 1:後手/白)
+	int turn = 0; // インスタンスに対応する手番データ(0:先手/黒 1:後手/白)
+	int discnum = 4;	//盤面上のコマの数
 	
 	
 	
@@ -68,6 +66,12 @@ public class Othello {
 		} else {
 			turn = 0;
 		}
+		discnum++;
+	}
+	
+	/*盤面上のコマの数を返すメソッド*/
+	public int getDiscnum() {
+		return discnum;
 	}
 	
 //	ターンを変更するメソッド
@@ -112,28 +116,41 @@ public class Othello {
 		return num;
 	}
 	
-	
-	public static boolean passCheck(int board[][], int c) {//先手と後手で処理を分けた
+	/*元のpassCheck()
+	public int passCheck() {
 		int flag = 0;
-		if(turn==0) {//先手/黒
-			for(int i=0; i<8; i++) {
-				for(int j=0; j<8; j++) {
-					if(mainboard[i][j] == 1 || mainboard[i][j] == 3) {
-						flag = 1;
-					}
+		
+		for(int i=0; i<8; i++) {
+			for(int j=0; j<8; j++) {
+				if(mainboard[i][j] >= 1 && mainboard[i][j] <= 3) {
+					flag = 1;
 				}
 			}
 		}
 		
-		if(turn==1) {//後手/白
+		if (flag == 0) {
+			return 1;
+		} else {
+			return 0;
+		}
+	}
+	*/
+	
+//	現状態でのパスの必要性を判定するメソッド
+//	[引数] int[][]：盤面, int：色（1：黒, 2：白）
+//	[戻り値 int(true:置けるマスがある, false:パス必須]
+	static public boolean passCheck(int board[][], int c) {
+		int flag = 0;
+		
+		LOOP_F:
 			for(int i=0; i<8; i++) {
 				for(int j=0; j<8; j++) {
-					if(mainboard[i][j] == 2 || mainboard[i][j] == 3) {
-						flag = 1;
+					if(board[i][j] == c | board[i][j] == 3) {
+						flag = 1;	//置けるマスがあるというフラグ
+						break LOOP_F;	//二重ループを一気に抜ける
 					}
 				}
 			}
-		}
 		
 		if (flag == 0) {
 			return false;
@@ -387,10 +404,10 @@ public class Othello {
 			for(int j=0; j<8; j++) {
 				switch (mainboard[i][j]) {
 					case 4:
-						System.out.print("● ");
+						System.out.print("●");
 						break;
 					case 5:
-						System.out.print("○ ");
+						System.out.print("○");
 						break;
 					default:
 						System.out.print("• ");

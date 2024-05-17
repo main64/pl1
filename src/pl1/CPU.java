@@ -1,4 +1,3 @@
-package pl1;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -9,8 +8,8 @@ public class CPU {
 	private int[][] wb = new int[8][8];	//重み付け盤面
 	private String color;	//先手後手情報
 	private int[] move = new int[2];	//指し手情報
-	private final int ENDSTART_N = 55;	//"ふつう"において終盤完全読みを開始するターン数
-	private final int ENDSTART = 49;	//"やさしい"と"難しい"において終盤完全読みを開始するターン数
+	private final int ENDSTART_N = 56;	//"ふつう"において終盤完全読みを開始するターン数
+	private final int ENDSTART = 52;	//"やさしい"と"難しい"において終盤完全読みを開始するターン数
 	
 	/*コンストラクタ*/
 	public CPU(String difficulty, String PlayerColor){
@@ -235,46 +234,50 @@ public class CPU {
 	}
 	
 	/*難易度易*/
-	private void easy(int[][] board, int c) {
+	private void easy(Othello othello, int c) {
+		int discnum = othello.getDiscnum();	//盤面上のコマの数
 		int depth = 1;	//何手先まで読むか
-		if(Client.getTurn() < ENDSTART - depth + 1) {
-			search(depth, depth, board, c, false, Integer.MAX_VALUE, Integer.MAX_VALUE);
+		if(discnum < ENDSTART) {
+			search(depth, depth, othello.getBoard(), c, false, Integer.MAX_VALUE, Integer.MAX_VALUE);
 		}else {	//完全探索
-			int enddepth = 60 - Client.getTurn() + 1;
-			search(enddepth, enddepth, board, c, true, Integer.MAX_VALUE, Integer.MAX_VALUE);
+			System.out.println("完全探索");
+			int enddepth = 64 - discnum;
+			search(enddepth, enddepth, othello.getBoard(), c, true, Integer.MAX_VALUE, Integer.MAX_VALUE);
 		}
 	}
 	
 	/*難易度中*/
-	private void normal(int[][] board, int c) {
+	private void normal(Othello othello, int c) {
+		int discnum = othello.getDiscnum();
 		int depth = 2;
-		if(Client.getTurn() < ENDSTART_N - depth + 1) {
-			search(depth, depth, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
-		}else if(Client.getTurn() < ENDSTART_N) {	//完全探索が始まる前の手番までの先読みをする
-			int toend = ENDSTART_N - Client.getTurn();
-			search(toend, toend, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
+		if(discnum < ENDSTART_N - depth + 1) {
+			search(depth, depth, othello.getBoard(), c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
+		}else if(discnum < ENDSTART_N) {	//完全探索が始まる前の手番までの先読みをする
+			int toend = ENDSTART_N - discnum;
+			search(toend, toend, othello.getBoard(), c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}else {
-			int enddepth = 60 - Client.getTurn() + 1;
-			search(enddepth, enddepth, board, c, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			int enddepth = 64 - discnum;
+			search(enddepth, enddepth, othello.getBoard(), c, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}
 	}
 	
 	/*難易度高*/
-	private void difficult(int[][] board, int c) {
+	private void difficult(Othello othello, int c) {
+		int discnum = othello.getDiscnum();
 		int depth = 8;
-		if(Client.getTurn() < ENDSTART - depth + 1) {
-			search(depth, depth, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
-		}else if(Client.getTurn() < ENDSTART) {	//完全探索が始まる前の手番までの先読みをする
-			int toend = ENDSTART - Client.getTurn();
-			search(toend, toend, board, c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
+		if(discnum < ENDSTART - depth + 1) {
+			search(depth, depth, othello.getBoard(), c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
+		}else if(discnum < ENDSTART) {	//完全探索が始まる前の手番までの先読みをする
+			int toend = ENDSTART - discnum;
+			search(toend, toend, othello.getBoard(), c, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}else {
-			int enddepth = 60 - Client.getTurn() + 1;
-			search(enddepth, enddepth, board, c, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			int enddepth = 64 - discnum;
+			search(enddepth, enddepth, othello.getBoard(), c, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		}
 	}
 	
 	/*CPUクラスのメイン関数のようなもの*/
-	public void CPUMain(int[][] board) {	
+	public void CPUMain(Othello othello) {	
 		int c;	//CPUが黒ならば1, CPUが白ならば2が入る
 		
 		/*cに入れる値を決める*/
@@ -289,17 +292,22 @@ public class CPU {
 		/*探索方法を場合分け*/
 		try{
 			if(difficulty == "やさしい") {
-				easy(board, c);
+				easy(othello, c);
 			}else if(difficulty == "ふつう") {
-				normal(board, c);
+				normal(othello, c);
 			}else if(difficulty == "難しい") {
-				difficult(board, c);
+				difficult(othello, c);
 			}else {
 				throw new DifficultyException("難易度が正しくありません");
 			}
 		}catch(DifficultyException de) {
 			System.out.println(de.getMessage());
-		}		
+		}
+		
+		/*CPUがパスした場合、オセロクラスの手番を変更*/
+		if(move[0] == -1 & move[1] == -1) {
+			othello.pass();
+		}
 	}
 	
 	/*指し手を取得*/
